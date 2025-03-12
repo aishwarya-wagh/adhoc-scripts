@@ -3,7 +3,7 @@ import re
 import csv
 
 def extract_dag_info(file_path):
-    with open(file_path, 'r') as file:
+    with open(file_path, 'r', encoding='utf-8') as file:
         content = file.read()
         
         # Extract DAG name
@@ -14,13 +14,17 @@ def extract_dag_info(file_path):
         dag_name = dag_name_match.group(1)
         
         # Extract ETL path
-        etl_path_match = re.search(r'arguments=\[\s*"python3",\s*"([^"]+)"', content)
+        # Look for any argument that starts with "etl/" or f"etl/"
+        etl_path_match = re.search(r'(?:f?"etl/[^"]+"|"etl/[^"]+")', content)
         if not etl_path_match:
             return dag_name, None
         
-        etl_path = etl_path_match.group(1)
-        if not etl_path.startswith('/etl'):
-            return dag_name, None
+        etl_path = etl_path_match.group(0)
+        
+        # Remove surrounding quotes and f-prefix if present
+        etl_path = etl_path.strip('"').strip("'")
+        if etl_path.startswith('f'):
+            etl_path = etl_path[1:].strip('"').strip("'")
         
         return dag_name, etl_path
 
@@ -38,7 +42,7 @@ def process_directory(directory):
     return dag_info_list
 
 def save_to_csv(dag_info_list, output_file):
-    with open(output_file, 'w', newline='') as csvfile:
+    with open(output_file, 'w', newline='', encoding='utf-8') as csvfile:
         csvwriter = csv.writer(csvfile)
         csvwriter.writerow(['DAG Name', 'ETL Path'])
         for dag_name, etl_path in dag_info_list:
