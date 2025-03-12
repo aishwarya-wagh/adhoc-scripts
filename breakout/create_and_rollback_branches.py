@@ -12,15 +12,29 @@ def create_branch_and_copy_etl(dag_name, etl_path, main_branch="main"):
         # Create and checkout new branch
         subprocess.run(["git", "checkout", "-b", dag_name], check=True)
         
-        # Remove existing etl directory
+        # Create a temporary directory to hold the selected ETL content
+        temp_etl_dir = "temp_etl"
+        if os.path.exists(temp_etl_dir):
+            shutil.rmtree(temp_etl_dir)
+        os.makedirs(temp_etl_dir)
+        
+        # Copy only the relevant ETL content to the temporary directory
+        if os.path.exists(etl_path):
+            # Copy the content from etl_path to temp_etl_dir
+            if os.path.isdir(etl_path):
+                shutil.copytree(etl_path, os.path.join(temp_etl_dir, os.path.basename(etl_path)))
+            else:
+                shutil.copy2(etl_path, temp_etl_dir)
+        else:
+            print(f"ETL path {etl_path} does not exist. Skipping.")
+            return
+        
+        # Remove the existing etl directory in the new branch
         if os.path.exists("etl"):
             shutil.rmtree("etl")
         
-        # Copy relevant ETL content
-        if os.path.exists(etl_path):
-            shutil.copytree(etl_path, "etl")
-        else:
-            print(f"ETL path {etl_path} does not exist. Skipping.")
+        # Move the temporary ETL content to the etl directory
+        shutil.move(temp_etl_dir, "etl")
         
         # Commit changes
         subprocess.run(["git", "add", "etl"], check=True)
