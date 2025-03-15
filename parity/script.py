@@ -28,6 +28,12 @@ with open('create_schemas_qa.sql', 'w') as schema_file, \
 
     # Step 2: Create missing tables (including external tables)
     merged_tables = pd.merge(prod_tables, qa_tables, on=['TABLE_SCHEMA', 'TABLE_NAME'], how='outer', indicator=True)
+    
+    # Rename columns to remove _x and _y suffixes
+    merged_tables.rename(columns={
+        'TABLE_TYPE_x': 'TABLE_TYPE'  # Use TABLE_TYPE from prod_tables
+    }, inplace=True)
+
     missing_tables = merged_tables[merged_tables['_merge'] == 'left_only']
 
     for _, row in missing_tables.iterrows():
