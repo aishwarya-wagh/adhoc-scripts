@@ -1,11 +1,21 @@
-BEGIN
-    LET rs RESULTSET := (SELECT GET_DDL('SCHEMA', schema_name) AS ddl
-                         FROM information_schema.schemata
-                         WHERE catalog_name = 'PROD_DATABASE_NAME');
-    LET cur CURSOR FOR rs;
-    OPEN cur;
-    FOR row_variable IN cur DO
-        -- Output or store the DDL for each schema
-        RETURN row_variable.ddl;
-    END FOR;
-END;
+SELECT schema_name
+FROM information_schema.schemata
+WHERE catalog_name = 'PROD_DATABASE_NAME';
+
+SELECT table_schema, table_name, table_type
+FROM information_schema.tables
+WHERE table_catalog = 'PROD_DATABASE_NAME';
+
+SELECT table_schema, table_name, column_name, data_type, is_nullable, column_default
+FROM information_schema.columns
+WHERE table_catalog = 'PROD_DATABASE_NAME';
+
+SELECT table_schema, table_name, view_definition, is_secure, is_materialized
+FROM information_schema.views
+WHERE table_catalog = 'PROD_DATABASE_NAME';
+
+SELECT table_schema, table_name, view_definition
+FROM information_schema.views
+WHERE table_catalog = 'PROD_DATABASE_NAME'
+  AND is_materialized = 'YES';
+
