@@ -5,17 +5,20 @@ prod_schemas = pd.read_csv('schemas.csv')
 prod_tables = pd.read_csv('tables.csv')
 prod_columns = pd.read_csv('columns.csv')
 prod_views = pd.read_csv('views.csv')
+prod_materialized_views = pd.read_csv('materialized_views.csv')
 
 # Load QA metadata
 qa_schemas = pd.read_csv('qa_schemas.csv')
 qa_tables = pd.read_csv('qa_tables.csv')
 qa_columns = pd.read_csv('qa_columns.csv')
 qa_views = pd.read_csv('qa_views.csv')
+qa_materialized_views = pd.read_csv('qa_materialized_views.csv')
 
 # Output files
 with open('create_schemas_qa.sql', 'w') as schema_file, \
      open('create_tables_qa.sql', 'w') as table_file, \
      open('create_views_qa.sql', 'w') as view_file, \
+     open('create_materialized_views_qa.sql', 'w') as materialized_view_file, \
      open('alter_tables_qa.sql', 'w') as alter_file:
 
     # Step 1: Create missing schemas
@@ -53,20 +56,23 @@ with open('create_schemas_qa.sql', 'w') as schema_file, \
             table_file.write(f"CREATE EXTERNAL TABLE IF NOT EXISTS {row['TABLE_SCHEMA']}.{row['TABLE_NAME']} ...;\n")
             # Add external table-specific logic (e.g., location, file format) as needed.
 
-    # Step 3: Create missing views (including materialized views)
+    # Step 3: Create missing views
     merged_views = pd.merge(prod_views, qa_views, on=['TABLE_SCHEMA', 'TABLE_NAME'], how='outer', indicator=True)
     missing_views = merged_views[merged_views['_merge'] == 'left_only']
 
     for _, row in missing_views.iterrows():
-        if 'IS_MATERIALIZED' in row and row['IS_MATERIALIZED'] == 'YES':
-            # Generate CREATE MATERIALIZED VIEW statement
-            create_view_ddl = f"CREATE MATERIALIZED VIEW {row['TABLE_SCHEMA']}.{row['TABLE_NAME']} AS {row['VIEW_DEFINITION']};\n"
-        else:
-            # Generate CREATE OR REPLACE VIEW statement
-            create_view_ddl = f"CREATE OR REPLACE VIEW {row['TABLE_SCHEMA']}.{row['TABLE_NAME']} AS {row['VIEW_DEFINITION']};\n"
+        create_view_ddl = f"CREATE OR REPLACE VIEW {row['TABLE_SCHEMA']}.{row['TABLE_NAME']} AS {row['VIEW_DEFINITION']};\n"
         view_file.write(create_view_ddl)
 
-    # Step 4: Alter existing tables to add missing columns
+    # Step 4: Create missing materialized views
+    merged_materialized_views = pd.merge(prod_materialized_views, qa_materialized_views, on=['TABLE_SCHEMA', 'TABLE_NAME'], how='outer', indicator=True)
+    missing_materialized_views = merged_materialized_views[merged_materialized_views['_merge'] == 'left_only']
+
+    for _, row in missing_materialized_views.iterrows():
+        create_materialized_view_ddl = f"CREATE MATERIALIZED VIEW {row['TABLE_SCHEMA']}.{row['TABLE_NAME']} AS ...;\n"
+        materialized_view_file.write(create_materialized_view_ddl)
+
+    # Step 5: Alter existing tables to add missing columns
     merged_columns = pd.merge(prod_columns, qa_columns, on=['TABLE_SCHEMA', 'TABLE_NAME', 'COLUMN_NAME'], how='outer', indicator=True)
     missing_columns = merged_columns[merged_columns['_merge'] == 'left_only']
 
