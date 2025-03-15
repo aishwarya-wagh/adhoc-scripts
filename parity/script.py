@@ -74,6 +74,14 @@ with open('create_schemas_qa.sql', 'w') as schema_file, \
 
     # Step 5: Alter existing tables to add missing columns
     merged_columns = pd.merge(prod_columns, qa_columns, on=['TABLE_SCHEMA', 'TABLE_NAME', 'COLUMN_NAME'], how='outer', indicator=True)
+    
+    # Rename columns to remove _x and _y suffixes
+    merged_columns.rename(columns={
+        'DATA_TYPE_x': 'DATA_TYPE',
+        'IS_NULLABLE_x': 'IS_NULLABLE',
+        'COLUMN_DEFAULT_x': 'COLUMN_DEFAULT'
+    }, inplace=True)
+
     missing_columns = merged_columns[merged_columns['_merge'] == 'left_only']
 
     for _, row in missing_columns.iterrows():
