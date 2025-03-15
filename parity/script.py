@@ -23,36 +23,47 @@ with open('create_schemas_qa.sql', 'w') as schema_file, \
     for schema in missing_schemas:
         schema_file.write(f"CREATE SCHEMA IF NOT EXISTS {schema};\n")
 
-    # Step 2: Create missing tables
+    # Step 2: Create missing tables (including external tables)
     merged_tables = pd.merge(prod_tables, qa_tables, on=['TABLE_SCHEMA', 'TABLE_NAME'], how='outer', indicator=True)
     missing_tables = merged_tables[merged_tables['_merge'] == 'left_only']
 
     for _, row in missing_tables.iterrows():
-        # Generate CREATE TABLE statement
-        table_columns = prod_columns[
-            (prod_columns['TABLE_SCHEMA'] == row['TABLE_SCHEMA']) &
-            (prod_columns['TABLE_NAME'] == row['TABLE_NAME'])
-        ]
-        columns_ddl = []
-        for _, col in table_columns.iterrows():
-            col_def = f"{col['COLUMN_NAME']} {col['DATA_TYPE']}"
-            if col['IS_NULLABLE'] == 'NO':
-                col_def += " NOT NULL"
-            if pd.notna(col['COLUMN_DEFAULT']):
-                col_def += f" DEFAULT {col['COLUMN_DEFAULT']}"
-            columns_ddl.append(col_def)
+        if row['TABLE_TYPE'] == 'BASE TABLE':
+            # Generate CREATE TABLE statement for base tables
+            table_columns = prod_columns[
+                (prod_columns['TABLE_SCHEMA'] == row['TABLE_SCHEMA']) &
+                (prod_columns['TABLE_NAME'] == row['TABLE_NAME'])
+            ]
+            columns_ddl = []
+            for _, col in table_columns.iterrows():
+                col_def = f"{col['COLUMN_NAME']} {col['DATA_TYPE']}"
+                if col['IS_NULLABLE'] == 'NO':
+                    col_def += " NOT NULL"
+                if 'COLUMN_DEFAULT' in col and pd.notna(col['COLUMN_DEFAULT']):
+                    col_def += f" DEFAULT {col['COLUMN_DEFAULT']}"
+                columns_ddl.append(col_def)
+            
+            create_table_ddl = f"CREATE TABLE IF NOT EXISTS {row['TABLE_SCHEMA']}.{row['TABLE_NAME']} (\n"
+            create_table_ddl += ",\n".join(columns_ddl)
+            create_table_ddl += "\n);"
+            table_file.write(create_table_ddl + "\n\n")
         
-        create_table_ddl = f"CREATE TABLE IF NOT EXISTS {row['TABLE_SCHEMA']}.{row['TABLE_NAME']} (\n"
-        create_table_ddl += ",\n".join(columns_ddl)
-        create_table_ddl += "\n);"
-        table_file.write(create_table_ddl + "\n\n")
+        elif row['TABLE_TYPE'] == 'EXTERNAL TABLE':
+            # Generate CREATE EXTERNAL TABLE statement
+            table_file.write(f"CREATE EXTERNAL TABLE IF NOT EXISTS {row['TABLE_SCHEMA']}.{row['TABLE_NAME']} ...;\n")
+            # Add external table-specific logic (e.g., location, file format) as needed.
 
-    # Step 3: Create missing views
+    # Step 3: Create missing views (including materialized views)
     merged_views = pd.merge(prod_views, qa_views, on=['TABLE_SCHEMA', 'TABLE_NAME'], how='outer', indicator=True)
     missing_views = merged_views[merged_views['_merge'] == 'left_only']
 
     for _, row in missing_views.iterrows():
-        create_view_ddl = f"CREATE OR REPLACE VIEW {row['TABLE_SCHEMA']}.{row['TABLE_NAME']} AS {row['VIEW_DEFINITION']};\n"
+        if 'IS_MATERIALIZED' in row and row['IS_MATERIALIZED'] == 'YES':
+            # Generate CREATE MATERIALIZED VIEW statement
+            create_view_ddl = f"CREATE MATERIALIZED VIEW {row['TABLE_SCHEMA']}.{row['TABLE_NAME']} AS {row['VIEW_DEFINITION']};\n"
+        else:
+            # Generate CREATE OR REPLACE VIEW statement
+            create_view_ddl = f"CREATE OR REPLACE VIEW {row['TABLE_SCHEMA']}.{row['TABLE_NAME']} AS {row['VIEW_DEFINITION']};\n"
         view_file.write(create_view_ddl)
 
     # Step 4: Alter existing tables to add missing columns
@@ -64,7 +75,7 @@ with open('create_schemas_qa.sql', 'w') as schema_file, \
         alter_table_ddl += f"ADD COLUMN {row['COLUMN_NAME']} {row['DATA_TYPE']}"
         if row['IS_NULLABLE'] == 'NO':
             alter_table_ddl += " NOT NULL"
-        if pd.notna(row['COLUMN_DEFAULT']):
+        if 'COLUMN_DEFAULT' in row and pd.notna(row['COLUMN_DEFAULT']):
             alter_table_ddl += f" DEFAULT {row['COLUMN_DEFAULT']}"
         alter_table_ddl += ";\n"
         alter_file.write(alter_table_ddl)
