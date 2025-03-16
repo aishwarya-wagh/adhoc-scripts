@@ -7,8 +7,7 @@ SNOWFLAKE_ACCOUNT = 'your_account'
 SNOWFLAKE_USER = 'your_username'
 SNOWFLAKE_PASSWORD = 'your_password'
 SNOWFLAKE_WAREHOUSE = 'your_warehouse'
-SNOWFLAKE_DATABASE = 'your_database'
-SNOWFLAKE_SCHEMA = 'your_schema'
+SNOWFLAKE_DATABASE = 'your_database'  # Default database (can be overridden)
 SNOWFLAKE_ROLE = 'ACCOUNTADMIN'  # Specify the role here
 
 # Directory containing split SQL files
@@ -23,8 +22,7 @@ conn = snowflake.connector.connect(
     password=SNOWFLAKE_PASSWORD,
     account=SNOWFLAKE_ACCOUNT,
     warehouse=SNOWFLAKE_WAREHOUSE,
-    database=SNOWFLAKE_DATABASE,
-    schema=SNOWFLAKE_SCHEMA,
+    database=SNOWFLAKE_DATABASE,  # Default database
     role=SNOWFLAKE_ROLE  # Use the specified role
 )
 cursor = conn.cursor()
@@ -37,6 +35,11 @@ with open(failed_queries_file, 'w') as failed_file:
             file_path = os.path.join(input_dir, filename)
             print(f"Executing queries from {filename}...")
 
+            # Set the database dynamically (e.g., 'abcd')
+            target_database = 'abcd'  # Replace with the desired database name
+            cursor.execute(f"USE DATABASE {target_database};")
+            print(f"Set database to {target_database}.")
+
             # Read the file and split into individual queries
             with open(file_path, 'r') as sql_file:
                 queries = sql_file.read().split(';\n')
@@ -48,6 +51,14 @@ with open(failed_queries_file, 'w') as failed_file:
                     continue  # Skip empty queries
 
                 try:
+                    # Extract schema from the query (if applicable)
+                    # Example: If the query is "USE SCHEMA schema_name;"
+                    if query.upper().startswith('USE SCHEMA'):
+                        schema_name = query.split()[-1].strip(';')
+                        cursor.execute(f"USE SCHEMA {schema_name};")
+                        print(f"Set schema to {schema_name}.")
+                        continue  # Skip executing the USE SCHEMA query again
+
                     # Execute the query
                     cursor.execute(query)
                     print(f"Success: {query}")
