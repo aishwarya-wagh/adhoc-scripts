@@ -18,3 +18,7 @@ SELECT table_schema, table_name, 'MATERIALIZED VIEW' AS table_type
 FROM information_schema.tables
 WHERE table_catalog = 'PROD_DATABASE_NAME'
   AND table_type = 'MATERIALIZED VIEW';
+
+SELECT GET_DDL('SEQUENCE', sequence_catalog || '.' || sequence_schema || '.' || sequence_name) AS sequence_ddl
+FROM information_schema.sequences
+WHERE sequence_catalog = 'YOUR_DATABASE_NAME';
