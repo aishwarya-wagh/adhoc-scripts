@@ -19,6 +19,11 @@ FROM information_schema.tables
 WHERE table_catalog = 'PROD_DATABASE_NAME'
   AND table_type = 'MATERIALIZED VIEW';
 
-SELECT GET_DDL('SEQUENCE', sequence_catalog || '.' || sequence_schema || '.' || sequence_name) AS sequence_ddl
-FROM information_schema.sequences
-WHERE sequence_catalog = 'YOUR_DATABASE_NAME';
+SHOW SEQUENCES IN DATABASE YOUR_DATABASE_NAME;
+SELECT 
+  "database_name",
+  "schema_name",
+  "name" AS sequence_name,
+  GET_DDL('SEQUENCE', "database_name" || '.' || "schema_name" || '.' || "name") AS sequence_ddl
+FROM TABLE(RESULT_SCAN(LAST_QUERY_ID()));
+
