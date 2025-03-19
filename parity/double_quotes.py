@@ -2,20 +2,31 @@ import re
 
 def quote_column_names(sql_statement):
     """
-    Convert all column names in a CREATE TABLE statement to quoted names.
+    Convert all column names in a CREATE TABLE statement to double-quoted names.
     """
-    # Regex to match column definitions (e.g., "column_name DATA_TYPE")
-    column_pattern = re.compile(r'(\b[^,\n]+\b)(?=\s+\w+|,)')
+    # Extract the text between parentheses (column definitions)
+    column_section_match = re.search(r'\(([\s\S]*?)\)', sql_statement)
+    if not column_section_match:
+        return sql_statement  # No column definitions found
 
-    # Replace column names with quoted names
+    column_section = column_section_match.group(1)
+
+    # Regex to match column names (including single-quoted names)
+    column_pattern = re.compile(r"('[^']+'|\b[^,\n]+\b)(?=\s+\w+|,)")
+
+    # Replace column names with double-quoted names
     def quote_match(match):
         column_name = match.group(1).strip()
+        # Remove single quotes if present
+        if column_name.startswith("'") and column_name.endswith("'"):
+            column_name = column_name[1:-1]
         return f'"{column_name}"'
 
-    # Apply the replacement only to column names
-    quoted_sql = sql_statement
-    for match in column_pattern.finditer(sql_statement):
-        quoted_sql = quoted_sql.replace(match.group(1), f'"{match.group(1).strip()}"')
+    # Apply the replacement only to column names in the column section
+    quoted_column_section = column_pattern.sub(quote_match, column_section)
+
+    # Replace the original column section with the quoted version
+    quoted_sql = sql_statement.replace(column_section, quoted_column_section)
     return quoted_sql
 
 def process_csv(input_file, output_file):
