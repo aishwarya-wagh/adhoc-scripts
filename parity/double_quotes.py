@@ -11,8 +11,8 @@ def quote_column_names(sql_statement):
 
     column_section = column_section_match.group(1)
 
-    # Regex to match column names (including single-quoted names)
-    column_pattern = re.compile(r"('[^']+'|\b[^,\n]+\b)(?=\s+\w+|,)")
+    # Regex to match column names (including single-quoted names, but excluding already double-quoted names)
+    column_pattern = re.compile(r'("[^"]+"|\'[^\']+\'|\b[^,\n]+\b)(?=\s+\w+|,)')
 
     # Replace column names with double-quoted names
     def quote_match(match):
@@ -20,6 +20,9 @@ def quote_column_names(sql_statement):
         # Remove single quotes if present
         if column_name.startswith("'") and column_name.endswith("'"):
             column_name = column_name[1:-1]
+        # Skip if already double-quoted
+        if column_name.startswith('"') and column_name.endswith('"'):
+            return column_name
         return f'"{column_name}"'
 
     # Apply the replacement only to column names in the column section
