@@ -29,26 +29,31 @@ def quote_column_names(sql_statement):
     quoted_sql = sql_statement.replace(column_section, quoted_column_section)
     return quoted_sql
 
-def process_csv(input_file, output_file):
+def process_sql_file(input_file, output_file):
     """
-    Process a CSV file containing CREATE TABLE statements and quote column names.
+    Process an SQL file containing CREATE TABLE statements and quote column names.
     """
     with open(input_file, 'r') as infile, open(output_file, 'w') as outfile:
-        for line in infile:
-            # Check if the line contains a CREATE TABLE statement
-            if "CREATE TABLE IF NOT EXISTS" in line.upper():
+        sql_content = infile.read()  # Read the entire SQL file
+
+        # Split the SQL content into individual statements
+        sql_statements = re.split(r';\s*\n', sql_content)
+
+        for statement in sql_statements:
+            # Check if the statement contains a CREATE TABLE statement
+            if "CREATE TABLE IF NOT EXISTS" in statement.upper():
                 # Quote column names in the CREATE TABLE statement
-                modified_line = quote_column_names(line)
-                outfile.write(modified_line)
+                modified_statement = quote_column_names(statement)
+                outfile.write(modified_statement + ";\n")
             else:
-                # Write the line as-is if it's not a CREATE TABLE statement
-                outfile.write(line)
+                # Write the statement as-is if it's not a CREATE TABLE statement
+                outfile.write(statement + ";\n")
 
 # Input and output file paths
-input_csv = "input_tables.csv"  # Replace with your input CSV file path
-output_csv = "output_tables.csv"  # Replace with your output CSV file path
+input_file = "input.sql"  # Replace with your input SQL file path
+output_file = "output.sql"  # Replace with your output SQL file path
 
-# Process the CSV file
-process_csv(input_csv, output_csv)
+# Process the SQL file
+process_sql_file(input_file, output_file)
 
-print(f"Processed CSV saved to {output_csv}")
+print(f"Processed SQL file saved to {output_file}")
