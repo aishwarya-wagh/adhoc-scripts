@@ -5,7 +5,7 @@ def quote_column_names(sql_statement):
     Convert all column names in a CREATE TABLE statement to quoted names.
     """
     # Regex to match column definitions (e.g., "column_name DATA_TYPE")
-    column_pattern = re.compile(r'(\b\w+[\s\W]+\w+\b)(?=\s+\w+|,)')
+    column_pattern = re.compile(r'(\b[^,\n]+\b)(?=\s+\w+|,)')
 
     # Replace column names with quoted names
     def quote_match(match):
