@@ -11,7 +11,7 @@ def quote_column_names(sql_statement):
 
     column_section = column_section_match.group(1)
 
-    # Regex to match column names (excluding data types)
+    # Regex to match column names (excluding data types and commas)
     column_pattern = re.compile(r'("[^"]+"|\'[^\']+\'|\b[^,\n]+\b)(?=\s+\w+|,)')
 
     # Replace column names with double-quoted names
