@@ -1,45 +1,68 @@
 import os
 import re
+from pathlib import Path
+import shutil
 
-# Configuration
-SOURCE_DIR = 'path/to/your/bulk_files'  # Directory containing bulk_*.sql files
-TARGET_DIR = 'path/to/your/new_project'  # Where to save renamed files
-VERSION = 'V2025.04.01'                  # Version prefix
-START_NUMBER = 0                         # Starting number for sequence
+# Configuration - set both to the same directory
+SOURCE_DIR = 'path/to/your/files'
+TARGET_DIR = SOURCE_DIR  # Same as source
+VERSION = 'V2025.04.01'  # Version prefix
 
-def rename_bulk_files():
-    # Get all bulk_*.sql files
-    bulk_files = [f for f in os.listdir(SOURCE_DIR) if f.startswith('bulk_') and f.endswith('.sql')]
-    bulk_files.sort()  # Sort alphabetically for consistent numbering
+def get_highest_existing_number():
+    """Find the highest existing sequence number, ignoring bulk_*.sql files"""
+    max_num = -1
+    pattern = re.compile(rf"{re.escape(VERSION)}\.(\d{{4}})__.*\.sql")
     
-    # Create target directory if it doesn't exist
-    os.makedirs(TARGET_DIR, exist_ok=True)
+    for filename in os.listdir(TARGET_DIR):
+        # Skip the bulk_*.sql files when looking for existing numbers
+        if filename.startswith('bulk_') and filename.endswith('.sql'):
+            continue
+        match = pattern.match(filename)
+        if match:
+            current_num = int(match.group(1))
+            if current_num > max_num:
+                max_num = current_num
+    return max_num + 1  # Return next available number
+
+def rename_in_place():
+    """Rename files in the same directory with proper sequencing"""
+    start_number = get_highest_existing_number()
+    print(f"Starting numbering from: {start_number:04d}")
     
-    # Process each file
-    for i, filename in enumerate(bulk_files, start=START_NUMBER):
-        # Extract the "somename" part (between bulk_ and .sql)
+    # Get all bulk_*.sql files and sort them
+    bulk_files = sorted(
+        [f for f in os.listdir(SOURCE_DIR) 
+         if f.startswith('bulk_') and f.endswith('.sql')],
+        key=lambda x: x.lower()
+    )
+    
+    # First collect all rename operations to perform
+    rename_operations = []
+    for i, filename in enumerate(bulk_files, start=start_number):
         match = re.match(r'bulk_(.*?)\.sql', filename)
         if not match:
             continue
             
         somename = match.group(1)
-        
-        # Format new filename with zero-padded 4-digit number
         new_filename = f"{VERSION}.{i:04d}__{somename}.sql"
+        rename_operations.append((filename, new_filename))
+    
+    # Then execute the renames (safer than renaming while iterating)
+    for old_name, new_name in rename_operations:
+        old_path = Path(SOURCE_DIR) / old_name
+        new_path = Path(TARGET_DIR) / new_name
         
-        # Build full paths
-        old_path = os.path.join(SOURCE_DIR, filename)
-        new_path = os.path.join(TARGET_DIR, new_filename)
-        
-        # Copy (or rename) the file
-        with open(old_path, 'r') as old_file:
-            content = old_file.read()
-        with open(new_path, 'w') as new_file:
-            new_file.write(content)
-        
-        print(f"Renamed: {filename} -> {new_filename}")
+        # Use copy + delete instead of rename to be extra safe
+        shutil.copy(old_path, new_path)
+        os.remove(old_path)
+        print(f"Renamed: {old_name} -> {new_name}")
 
 if __name__ == "__main__":
-    print("Starting bulk file renaming...")
-    rename_bulk_files()
-    print("Renaming complete!")
+    print("Starting in-place file renaming...")
+    
+    # Safety check
+    if SOURCE_DIR != TARGET_DIR:
+        print("Warning: This script is optimized for same source/target directories")
+    
+    rename_in_place()
+    print(f"Process completed. Renamed {len(os.listdir(SOURCE_DIR))} files.")
